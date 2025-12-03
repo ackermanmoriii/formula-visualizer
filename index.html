@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gemini Math Archaeologist</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+        }
+
+        /* The Interactive Variable Styling */
+        .variable-link {
+            color: #2563eb; /* Blue */
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border-bottom: 2px solid transparent;
+            padding-bottom: 2px;
+        }
+
+        .variable-link:hover {
+            color: #d946ef; /* Pink on hover */
+            border-bottom: 2px solid #d946ef;
+        }
+
+        /* The Origin Popup (Modal/Tooltip) */
+        #origin-popup {
+            display: none;
+            position: fixed;
+            z-index: 50;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            border: 1px solid #e2e8f0;
+            border-radius: 1rem;
+            padding: 2rem;
+            max-width: 90%;
+            width: 400px;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        #overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.3);
+            z-index: 40;
+            backdrop-filter: blur(2px);
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translate(-50%, -55%); }
+            to { opacity: 1; transform: translate(-50%, -50%); }
+        }
+        
+        /* Specific animation for overlay to not move */
+        @keyframes fadeInOverlay {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .missing-link-badge {
+            background-color: #fef3c7;
+            color: #d97706;
+            border: 1px solid #fcd34d;
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col">
+
+    <header class="bg-white border-b border-gray-200 p-6 shadow-sm">
+        <div class="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
+            <div>
+                <h1 class="text-2xl font-bold text-slate-800">Math Archaeologist</h1>
+                <p class="text-sm text-slate-500">Deep Dive Formula Visualization with Gemini</p>
+            </div>
+            
+            <div class="flex items-center gap-2 bg-slate-50 p-2 rounded-lg border border-slate-200">
+                <input type="password" id="api-key" placeholder="Enter Gemini API Key" class="bg-transparent outline-none px-2 py-1 text-sm w-64">
+                <button onclick="setApiKey()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-4 py-2 rounded transition-colors">
+                    Set
+                </button>
+            </div>
+        </div>
+        <div id="connection-status" class="text-center text-xs font-bold mt-2 h-4 text-green-600"></div>
+    </header>
+
+    <main class="flex-1 overflow-hidden flex flex-col md:flex-row max-w-7xl mx-auto w-full p-6 gap-6">
+        
+        <div class="flex flex-col w-full md:w-1/3 gap-4 h-full">
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex flex-col h-full">
+                <h2 class="font-semibold text-slate-700 mb-2 flex items-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                    Raw Input
+                </h2>
+                <textarea id="input-text" class="flex-1 w-full p-4 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none resize-none font-mono text-sm" placeholder="Paste your text with scattered mathematical formulas here..."></textarea>
+                <button onclick="processDeepDive()" class="mt-4 w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 px-4 rounded-lg shadow transition-all flex justify-center items-center gap-2">
+                    <span id="btn-text">Deep Dive & Sort</span>
+                    <div id="loader" class="hidden animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></div>
+                </button>
+            </div>
+        </div>
+
+        <div class="flex flex-col w-full md:w-2/3 h-full overflow-y-auto pr-2" id="results-container">
+            <div id="empty-state" class="h-full flex flex-col items-center justify-center text-slate-400">
+                <svg class="w-16 h-16 mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"></path></svg>
+                <p>Formulas will appear here, sorted by causality.</p>
+            </div>
+            
+            <div id="formula-list" class="space-y-6 pb-20"></div>
+        </div>
+    </main>
+
+    <div id="overlay" onclick="closePopup()"></div>
+    <div id="origin-popup">
+        <div class="flex justify-between items-start mb-4">
+            <h3 class="text-sm font-bold text-slate-500 uppercase tracking-wider">Origin Formula</h3>
+            <button onclick="closePopup()" class="text-slate-400 hover:text-red-500">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+        </div>
+        <div id="popup-content" class="text-2xl text-center py-4 text-slate-800 font-serif">
+            </div>
+        <div class="mt-4 pt-4 border-t border-gray-100">
+            <p class="text-sm text-gray-600 italic" id="popup-desc">
+                This variable was defined here.
+            </p>
+        </div>
+    </div>
+
+    <script>
+        // State Management
+        let USER_API_KEY = '';
+        let FORMULA_DATA_MAP = {}; // To store the full logic for popups
+
+        function setApiKey() {
+            const input = document.getElementById('api-key');
+            if(input.value.trim().length > 0) {
+                USER_API_KEY = input.value.trim();
+                const status = document.getElementById('connection-status');
+                status.textContent = "Connection Successful";
+                status.classList.add('animate-pulse');
+                setTimeout(() => status.classList.remove('animate-pulse'), 2000);
+            } else {
+                alert("Please enter a valid key");
+            }
+        }
+
+        async function processDeepDive() {
+            if (!USER_API_KEY) {
+                alert("Please click 'Set' to connect your API Key first.");
+                return;
+            }
+
+            const text = document.getElementById('input-text').value;
+            if (!text.trim()) return;
+
+            // UI Loading State
+            document.getElementById('btn-text').textContent = "Archaeologist thinking...";
+            document.getElementById('loader').classList.remove('hidden');
+            document.getElementById('empty-state').classList.add('hidden');
+            document.getElementById('formula-list').innerHTML = '';
+
+            try {
+                const response = await callGemini(text);
+                renderResults(response);
+            } catch (error) {
+                console.error(error);
+                alert("Deep dive failed. Please check the API key or try again.");
+            } finally {
+                document.getElementById('btn-text').textContent = "Deep Dive & Sort";
+                document.getElementById('loader').classList.add('hidden');
+            }
+        }
+
+        async function callGemini(inputText) {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${USER_API_KEY}`;
+            
+            // THE CORE INTELLIGENCE PROMPT
+            const prompt = `
+            You are a "Mathematical Archaeologist." Your goal is to analyze text, extract formulas, sort them by causality (dependencies), and fill in missing gaps.
+
+            INPUT TEXT:
+            "${inputText}"
+
+            TASKS:
+            1. Extract all mathematical formulas.
+            2. Sort them logically: Which formula defines a variable used in the next? (Cause -> Effect).
+            3. "Missing Link" Check: If Formula A defines 'x', and Formula C uses 'x' but does a transformation not explained in the text, generate the intermediate "Missing Link" Formula B.
+            
+            CRITICAL OUTPUT FORMAT RULES:
+            - Return ONLY a valid JSON array.
+            - Format: 
+            [
+              {
+                "id": "unique_string_id",
+                "latex": "Standard Latex string (e.g. C = 2x + y)",
+                "description": "Brief explanation of what this computes",
+                "is_missing_link": boolean,
+                "dependencies": [ 
+                    { "variable": "var_symbol", "source_id": "id_of_formula_where_defined" }
+                ]
+              }
+            ]
+            
+            IMPORTANT RENDER INSTRUCTION:
+            In the "latex" field, if a variable is listed in "dependencies", you MUST wrap that variable in the latex string using the command: \\htmlClass{variable-link ref-SOURCE_ID}{VARIABLE_SYMBOL}. 
+            Example: If 'C' depends on id '123', the latex should contain: ... = \\htmlClass{variable-link ref-123}{C} + ...
+            Do NOT change the math logic, just wrap the dependent variables for HTML interaction.
+            `;
+
+            const payload = {
+                contents: [{ parts: [{ text: prompt }] }]
+            };
+
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const data = await res.json();
+            const rawText = data.candidates[0].content.parts[0].text;
+            
+            // Clean markdown if Gemini adds it
+            const jsonString = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
+            return JSON.parse(jsonString);
+        }
+
+        function renderResults(formulas) {
+            const container = document.getElementById('formula-list');
+            FORMULA_DATA_MAP = {}; // Reset map
+
+            formulas.forEach((item, index) => {
+                // Store data for popups
+                FORMULA_DATA_MAP[item.id] = item;
+
+                // Create Card
+                const card = document.createElement('div');
+                card.className = `bg-white rounded-xl shadow-sm border ${item.is_missing_link ? 'border-amber-300 bg-amber-50' : 'border-gray-200'} p-6 transition-all hover:shadow-md`;
+                
+                // Header
+                let badge = `<span class="bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded uppercase tracking-wide font-bold">Step ${index + 1}</span>`;
+                if(item.is_missing_link) {
+                    badge += ` <span class="ml-2 bg-amber-100 text-amber-700 text-xs px-2 py-1 rounded uppercase tracking-wide font-bold border border-amber-200">Missing Link Discovered</span>`;
+                }
+
+                // Description
+                const desc = `<p class="mt-2 text-slate-500 text-sm font-medium">${item.description}</p>`;
+
+                // Math Container
+                const mathDiv = document.createElement('div');
+                mathDiv.className = "mt-4 text-xl md:text-2xl overflow-x-auto py-2";
+                
+                // Render with Katex
+                try {
+                    katex.render(item.latex, mathDiv, {
+                        throwOnError: false,
+                        displayMode: true,
+                        trust: true // CRITICAL: Allows \htmlClass to work
+                    });
+                } catch(e) {
+                    mathDiv.textContent = item.latex;
+                }
+
+                card.innerHTML = `<div class="flex items-center">${badge}</div>` + desc;
+                card.appendChild(mathDiv);
+                container.appendChild(card);
+            });
+
+            // Attach Event Listeners to the newly rendered Katex HTML
+            attachClickHandlers();
+        }
+
+        function attachClickHandlers() {
+            // Find all elements with the class 'variable-link' created by Gemini's Latex output
+            const links = document.querySelectorAll('.variable-link');
+            
+            links.forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    // Extract ID from class list (format: ref-ID)
+                    const classes = Array.from(link.classList);
+                    const refClass = classes.find(c => c.startsWith('ref-'));
+                    
+                    if (refClass) {
+                        const targetId = refClass.replace('ref-', '');
+                        showOriginPopup(targetId);
+                    }
+                });
+            });
+        }
+
+        function showOriginPopup(id) {
+            const data = FORMULA_DATA_MAP[id];
+            if (!data) return;
+
+            const popup = document.getElementById('origin-popup');
+            const overlay = document.getElementById('overlay');
+            const content = document.getElementById('popup-content');
+            const desc = document.getElementById('popup-desc');
+
+            // Render origin formula
+            katex.render(data.latex, content, {
+                throwOnError: false,
+                displayMode: true,
+                trust: true 
+            });
+
+            desc.textContent = `Origin: ${data.description}`;
+
+            overlay.style.display = 'block';
+            popup.style.display = 'block';
+        }
+
+        function closePopup() {
+            document.getElementById('origin-popup').style.display = 'none';
+            document.getElementById('overlay').style.display = 'none';
+        }
+
+        // Initialize empty map
+        FORMULA_DATA_MAP = {};
+    </script>
+</body>
+</html>

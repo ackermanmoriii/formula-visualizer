@@ -3,15 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gemini Math Archaeologist</title>
+    <title>Gemini Math Archaeologist & Visualizer (Persian Edition)</title>
     
+    <!-- Fonts: Inter for UI, Vazirmatn for Persian Text -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=JetBrains+Mono:wght@400;700&family=Vazirmatn:wght@300;400;700&display=swap" rel="stylesheet">
     
+    <!-- Katex for Math Rendering -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
-    
-    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
 
+    <!-- Chart.js for Visualization -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
 
     <style>
@@ -20,7 +25,36 @@
             background-color: #f8fafc;
         }
 
-        /* The Interactive Variable Styling */
+        /* Persian Text Class */
+        .persian-content {
+            font-family: 'Vazirmatn', sans-serif;
+            direction: rtl;
+            text-align: right;
+            line-height: 2.2; /* Good spacing for math chips */
+        }
+
+        /* Math Chip (The "Badge" Style) */
+        .math-code {
+            direction: ltr;
+            display: inline-block;
+            background-color: #eef2ff; /* indigo-50 */
+            color: #4338ca; /* indigo-700 */
+            padding: 2px 8px;
+            border-radius: 6px;
+            margin: 0 4px;
+            font-size: 0.95em;
+            border: 1px solid #c7d2fe; /* indigo-200 */
+            vertical-align: middle;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            font-family: 'JetBrains Mono', monospace;
+        }
+        
+        /* Ensure Katex inside the chip is clean */
+        .math-code .katex {
+            font-size: 1.0em;
+        }
+
+        /* Interactive Variable Styling */
         .variable-link {
             color: #2563eb; /* Blue */
             font-weight: bold;
@@ -31,12 +65,12 @@
         }
 
         .variable-link:hover {
-            color: #d946ef; /* Pink on hover */
+            color: #d946ef; /* Pink */
             border-bottom: 2px solid #d946ef;
         }
 
-        /* The Origin Popup (Modal/Tooltip) */
-        #origin-popup {
+        /* General Popups */
+        .modal {
             display: none;
             position: fixed;
             z-index: 50;
@@ -44,13 +78,27 @@
             left: 50%;
             transform: translate(-50%, -50%);
             background: white;
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
             border: 1px solid #e2e8f0;
             border-radius: 1rem;
-            padding: 2rem;
-            max-width: 90%;
-            width: 400px;
             animation: fadeIn 0.3s ease-out;
+        }
+
+        /* Origin Popup Specifics */
+        #origin-popup {
+            max-width: 90%;
+            width: 500px;
+            padding: 2rem;
+        }
+
+        /* Chart Popup Specifics */
+        #chart-popup {
+            width: 85%;
+            height: 80%;
+            max-width: 1100px;
+            padding: 1.5rem;
+            display: none;
+            flex-direction: column;
         }
 
         #overlay {
@@ -60,10 +108,30 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0,0,0,0.3);
+            background: rgba(15, 23, 42, 0.4);
             z-index: 40;
-            backdrop-filter: blur(2px);
-            animation: fadeIn 0.3s ease-out;
+            backdrop-filter: blur(4px);
+            animation: fadeInOverlay 0.3s ease-out;
+        }
+
+        /* Custom Chart Tooltip Styling */
+        #chartjs-tooltip {
+            opacity: 0;
+            position: absolute;
+            background: rgba(255, 255, 255, 0.95);
+            color: #1e293b;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            pointer-events: none;
+            transform: translate(-50%, 0);
+            transition: all 0.1s ease;
+            padding: 10px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            z-index: 100;
+            font-family: 'Vazirmatn', sans-serif;
+            text-align: right;
+            direction: rtl;
+            min-width: 150px;
         }
 
         @keyframes fadeIn {
@@ -71,92 +139,126 @@
             to { opacity: 1; transform: translate(-50%, -50%); }
         }
         
-        /* Specific animation for overlay to not move */
         @keyframes fadeInOverlay {
             from { opacity: 0; }
             to { opacity: 1; }
         }
 
-        .missing-link-badge {
-            background-color: #fef3c7;
-            color: #d97706;
-            border: 1px solid #fcd34d;
-        }
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
     </style>
 </head>
 <body class="h-screen flex flex-col">
 
-    <header class="bg-white border-b border-gray-200 p-6 shadow-sm">
-        <div class="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
+    <!-- Header -->
+    <header class="bg-white border-b border-gray-200 p-6 shadow-sm z-10">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
             <div>
-                <h1 class="text-2xl font-bold text-slate-800">Math Archaeologist</h1>
-                <p class="text-sm text-slate-500">Deep Dive Formula Visualization with Gemini</p>
+                <h1 class="text-2xl font-bold text-slate-800 tracking-tight">Gemini Math Engine</h1>
+                <p class="text-sm text-slate-500">Archaeology • Sorting • Visualization</p>
             </div>
             
-            <div class="flex items-center gap-2 bg-slate-50 p-2 rounded-lg border border-slate-200">
-                <input type="password" id="api-key" placeholder="Enter Gemini API Key" class="bg-transparent outline-none px-2 py-1 text-sm w-64">
-                <button onclick="setApiKey()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-4 py-2 rounded transition-colors">
-                    Set
+            <div class="flex items-center gap-2 bg-slate-50 p-2 rounded-lg border border-slate-200 shadow-inner">
+                <input type="password" id="api-key" placeholder="Enter Gemini API Key" class="bg-transparent outline-none px-2 py-1 text-sm w-64 text-slate-700">
+                <button onclick="setApiKey()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-4 py-2 rounded transition-colors shadow-sm">
+                    Set Key
                 </button>
             </div>
         </div>
         <div id="connection-status" class="text-center text-xs font-bold mt-2 h-4 text-green-600"></div>
     </header>
 
+    <!-- Main Content -->
     <main class="flex-1 overflow-hidden flex flex-col md:flex-row max-w-7xl mx-auto w-full p-6 gap-6">
         
+        <!-- Left: Input Area -->
         <div class="flex flex-col w-full md:w-1/3 gap-4 h-full">
-            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex flex-col h-full">
-                <h2 class="font-semibold text-slate-700 mb-2 flex items-center gap-2">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
-                    Raw Input
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5 flex flex-col h-full">
+                <h2 class="font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                    <svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                    Input Context
                 </h2>
-                <textarea id="input-text" class="flex-1 w-full p-4 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none resize-none font-mono text-sm" placeholder="Paste your text with scattered mathematical formulas here..."></textarea>
-                <button onclick="processDeepDive()" class="mt-4 w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 px-4 rounded-lg shadow transition-all flex justify-center items-center gap-2">
-                    <span id="btn-text">Deep Dive & Sort</span>
+                <textarea id="input-text" class="flex-1 w-full p-4 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none resize-none font-mono text-sm leading-relaxed" placeholder="Paste text containing mathematical formulas here..."></textarea>
+                <button onclick="processDeepDive()" class="mt-4 w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 px-4 rounded-lg shadow-lg hover:shadow-xl transition-all flex justify-center items-center gap-2 transform active:scale-95">
+                    <span id="btn-text">Deep Dive & Visualize</span>
                     <div id="loader" class="hidden animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></div>
                 </button>
             </div>
         </div>
 
-        <div class="flex flex-col w-full md:w-2/3 h-full overflow-y-auto pr-2" id="results-container">
+        <!-- Right: Visualization Area -->
+        <div class="flex flex-col w-full md:w-2/3 h-full overflow-y-auto pr-2 pb-10" id="results-container">
+            <!-- Empty State -->
             <div id="empty-state" class="h-full flex flex-col items-center justify-center text-slate-400">
-                <svg class="w-16 h-16 mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"></path></svg>
-                <p>Formulas will appear here, sorted by causality.</p>
+                <svg class="w-20 h-20 mb-4 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                <p class="font-medium">Formulas & Charts will appear here</p>
+                <p class="text-xs mt-2">Gemini is waiting for input...</p>
             </div>
             
-            <div id="formula-list" class="space-y-6 pb-20"></div>
+            <!-- Dynamic Content -->
+            <div id="formula-list" class="space-y-6"></div>
         </div>
     </main>
 
-    <div id="overlay" onclick="closePopup()"></div>
-    <div id="origin-popup">
+    <!-- Overlay -->
+    <div id="overlay" onclick="closeAllPopups()"></div>
+
+    <!-- 1. Variable Origin Popup -->
+    <div id="origin-popup" class="modal">
         <div class="flex justify-between items-start mb-4">
-            <h3 class="text-sm font-bold text-slate-500 uppercase tracking-wider">Origin Formula</h3>
-            <button onclick="closePopup()" class="text-slate-400 hover:text-red-500">
+            <h3 class="text-xs font-bold text-indigo-500 uppercase tracking-wider">Dependency Source</h3>
+            <button onclick="closeAllPopups()" class="text-slate-400 hover:text-red-500 transition-colors">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
             </button>
         </div>
-        <div id="popup-content" class="text-2xl text-center py-4 text-slate-800 font-serif">
+        <div id="popup-content" class="text-2xl text-center py-6 text-slate-800 font-serif border-b border-dashed border-gray-200 mb-4">
+            <!-- Latex goes here -->
+        </div>
+        <div>
+            <p class="text-sm text-gray-700 persian-content" id="popup-desc"></p>
+        </div>
+    </div>
+
+    <!-- 2. Chart Visualization Popup -->
+    <div id="chart-popup" class="modal">
+        <div class="flex justify-between items-center mb-2 pb-2 border-b border-gray-100">
+            <div>
+                <h3 class="text-lg font-bold text-slate-800">Visual Analysis</h3>
+                <!-- Subtitle is now a proper HTML element that can handle chips -->
+                <div id="chart-subtitle" class="text-sm text-slate-500 persian-content mt-1"></div>
             </div>
-        <div class="mt-4 pt-4 border-t border-gray-100">
-            <p class="text-sm text-gray-600 italic" id="popup-desc">
-                This variable was defined here.
-            </p>
+            <button onclick="closeAllPopups()" class="text-slate-400 hover:text-red-500 p-2 rounded-full hover:bg-red-50 transition-colors">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+        </div>
+        
+        <!-- Custom HTML Legend Container -->
+        <div id="chart-legend-container" class="flex flex-wrap gap-4 mb-4 justify-center"></div>
+
+        <div class="flex-1 relative w-full h-full bg-slate-50 rounded-lg border border-slate-100 p-2">
+            <canvas id="vizCanvas"></canvas>
+            <!-- Custom External Tooltip Element -->
+            <div id="chartjs-tooltip"></div>
         </div>
     </div>
 
     <script>
-        // State Management
+        // --- State Management ---
         let USER_API_KEY = '';
-        let FORMULA_DATA_MAP = {}; // To store the full logic for popups
+        let FORMULA_DATA_MAP = {}; 
+        let currentChartInstance = null;
+
+        // --- Core Functions ---
 
         function setApiKey() {
             const input = document.getElementById('api-key');
             if(input.value.trim().length > 0) {
                 USER_API_KEY = input.value.trim();
                 const status = document.getElementById('connection-status');
-                status.textContent = "Connection Successful";
+                status.textContent = "✓ API Connection Established";
                 status.classList.add('animate-pulse');
                 setTimeout(() => status.classList.remove('animate-pulse'), 2000);
             } else {
@@ -166,7 +268,7 @@
 
         async function processDeepDive() {
             if (!USER_API_KEY) {
-                alert("Please click 'Set' to connect your API Key first.");
+                alert("Please click 'Set Key' to connect first.");
                 return;
             }
 
@@ -174,8 +276,11 @@
             if (!text.trim()) return;
 
             // UI Loading State
-            document.getElementById('btn-text').textContent = "Archaeologist thinking...";
-            document.getElementById('loader').classList.remove('hidden');
+            const btnText = document.getElementById('btn-text');
+            const loader = document.getElementById('loader');
+            
+            btnText.textContent = "Analyzing & Calculating...";
+            loader.classList.remove('hidden');
             document.getElementById('empty-state').classList.add('hidden');
             document.getElementById('formula-list').innerHTML = '';
 
@@ -184,47 +289,53 @@
                 renderResults(response);
             } catch (error) {
                 console.error(error);
-                alert("Deep dive failed. Please check the API key or try again.");
+                alert("Analysis failed. Please check the API key or try again.");
             } finally {
-                document.getElementById('btn-text').textContent = "Deep Dive & Sort";
-                document.getElementById('loader').classList.add('hidden');
+                btnText.textContent = "Deep Dive & Visualize";
+                loader.classList.add('hidden');
             }
         }
 
         async function callGemini(inputText) {
             const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${USER_API_KEY}`;
             
-            // THE CORE INTELLIGENCE PROMPT
+            // --- THE MASTERMIND PROMPT ---
             const prompt = `
-            You are a "Mathematical Archaeologist." Your goal is to analyze text, extract formulas, sort them by causality (dependencies), and fill in missing gaps.
-
-            INPUT TEXT:
-            "${inputText}"
-
-            TASKS:
-            1. Extract all mathematical formulas.
-            2. Sort them logically: Which formula defines a variable used in the next? (Cause -> Effect).
-            3. "Missing Link" Check: If Formula A defines 'x', and Formula C uses 'x' but does a transformation not explained in the text, generate the intermediate "Missing Link" Formula B.
+            You are a "Mathematical Archaeologist" and a "Data Scientist". 
             
-            CRITICAL OUTPUT FORMAT RULES:
-            - Return ONLY a valid JSON array.
-            - Format: 
+            INPUT TEXT: "${inputText}"
+
+            TASK 1 (ARCHAEOLOGY): 
+            - Extract formulas.
+            - Sort them by causality (dependencies).
+            - Identify "Missing Links" (formulas implied but not written) and generate them.
+
+            TASK 2 (VISUALIZATION ENGINE):
+            - Analyze each formula for 2D Chart suitability.
+            - If YES: Calculate 10-20 (x,y) points and generate Chart.js config.
+
+            OUTPUT FORMAT (JSON ARRAY ONLY):
             [
               {
-                "id": "unique_string_id",
-                "latex": "Standard Latex string (e.g. C = 2x + y)",
-                "description": "Brief explanation of what this computes",
+                "id": "unique_id",
+                "latex": "Latex string",
+                "description": "Explanation in PERSIAN (Farsi).",
                 "is_missing_link": boolean,
-                "dependencies": [ 
-                    { "variable": "var_symbol", "source_id": "id_of_formula_where_defined" }
-                ]
+                "visualizable": boolean,
+                "dependencies": [ { "variable": "symbol", "source_id": "ref_id" } ],
+                "chart_data": {
+                    "type": "line" | "bar" | "scatter",
+                    "labels": [x1, x2, ...],
+                    "dataset_label": "Label in Persian with backticked math like \`\\beta=0\`",
+                    "data": [y1, y2, ...]
+                }
               }
             ]
-            
-            IMPORTANT RENDER INSTRUCTION:
-            In the "latex" field, if a variable is listed in "dependencies", you MUST wrap that variable in the latex string using the command: \\htmlClass{variable-link ref-SOURCE_ID}{VARIABLE_SYMBOL}. 
-            Example: If 'C' depends on id '123', the latex should contain: ... = \\htmlClass{variable-link ref-123}{C} + ...
-            Do NOT change the math logic, just wrap the dependent variables for HTML interaction.
+
+            CRITICAL RENDERING RULES:
+            1. The 'description' MUST be in Persian (Farsi).
+            2. If you refer to a mathematical symbol or formula inside the Persian description OR chart label, YOU MUST enclose it in backticks like \`x\` or \`\\sigma^2\`.
+            3. In the main 'latex' field, wrap dependent variables using: \\htmlClass{variable-link ref-SOURCE_ID}{VARIABLE_SYMBOL}.
             `;
 
             const payload = {
@@ -238,72 +349,106 @@
             });
 
             const data = await res.json();
-            const rawText = data.candidates[0].content.parts[0].text;
             
-            // Clean markdown if Gemini adds it
-            const jsonString = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
-            return JSON.parse(jsonString);
+            try {
+                const rawText = data.candidates[0].content.parts[0].text;
+                const jsonString = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
+                return JSON.parse(jsonString);
+            } catch (e) {
+                console.error("Gemini Response Error:", data);
+                throw new Error("Failed to parse Gemini response");
+            }
+        }
+
+        // --- CORE FORMATTER: Backticks -> Math Chips ---
+        function formatPersianText(text) {
+            if (!text) return '';
+            
+            // Replaces `math` with a span, and RENDERS the math using Katex inside it
+            return text.replace(/`([^`]+)`/g, (match, mathContent) => {
+                try {
+                    const renderedMath = katex.renderToString(mathContent, {
+                        throwOnError: false,
+                        displayMode: false 
+                    });
+                    return `<span class="math-code" dir="ltr">${renderedMath}</span>`;
+                } catch (e) {
+                    return `<span class="math-code" dir="ltr">${mathContent}</span>`;
+                }
+            });
         }
 
         function renderResults(formulas) {
             const container = document.getElementById('formula-list');
-            FORMULA_DATA_MAP = {}; // Reset map
+            FORMULA_DATA_MAP = {}; 
 
             formulas.forEach((item, index) => {
-                // Store data for popups
                 FORMULA_DATA_MAP[item.id] = item;
 
-                // Create Card
                 const card = document.createElement('div');
-                card.className = `bg-white rounded-xl shadow-sm border ${item.is_missing_link ? 'border-amber-300 bg-amber-50' : 'border-gray-200'} p-6 transition-all hover:shadow-md`;
+                card.className = `bg-white rounded-xl shadow-sm border ${item.is_missing_link ? 'border-amber-300 bg-amber-50' : 'border-gray-200'} p-6 transition-all hover:shadow-md relative overflow-hidden`;
                 
-                // Header
-                let badge = `<span class="bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded uppercase tracking-wide font-bold">Step ${index + 1}</span>`;
+                // Badges
+                let badges = `<div class="flex gap-2 mb-2">
+                    <span class="bg-gray-100 text-gray-600 text-[10px] px-2 py-1 rounded-full uppercase tracking-wide font-bold">Step ${index + 1}</span>`;
+                
                 if(item.is_missing_link) {
-                    badge += ` <span class="ml-2 bg-amber-100 text-amber-700 text-xs px-2 py-1 rounded uppercase tracking-wide font-bold border border-amber-200">Missing Link Discovered</span>`;
+                    badges += `<span class="bg-amber-100 text-amber-700 text-[10px] px-2 py-1 rounded-full uppercase tracking-wide font-bold border border-amber-200">Missing Link</span>`;
                 }
+                badges += `</div>`;
 
-                // Description
-                const desc = `<p class="mt-2 text-slate-500 text-sm font-medium">${item.description}</p>`;
+                // Desc with Persian Formatting + Rendered Math Chips
+                const formattedDesc = formatPersianText(item.description);
+                const desc = `<p class="text-slate-600 text-sm font-medium persian-content">${formattedDesc}</p>`;
 
-                // Math Container
+                // Math Area
                 const mathDiv = document.createElement('div');
-                mathDiv.className = "mt-4 text-xl md:text-2xl overflow-x-auto py-2";
+                mathDiv.className = "mt-4 mb-2 text-xl md:text-2xl overflow-x-auto py-3 px-2";
                 
-                // Render with Katex
                 try {
                     katex.render(item.latex, mathDiv, {
                         throwOnError: false,
                         displayMode: true,
-                        trust: true // CRITICAL: Allows \htmlClass to work
+                        trust: true 
                     });
                 } catch(e) {
                     mathDiv.textContent = item.latex;
                 }
 
-                card.innerHTML = `<div class="flex items-center">${badge}</div>` + desc;
+                // Viz Button
+                let vizButton = '';
+                if (item.visualizable && item.chart_data) {
+                    vizButton = `
+                    <div class="mt-4 pt-4 border-t border-gray-100/50 flex justify-end">
+                        <button onclick="openChart('${item.id}')" class="group flex items-center gap-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 px-4 py-2 rounded-lg transition-all duration-200">
+                            <svg class="w-5 h-5 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                            <span class="font-semibold text-sm">Visualize Data</span>
+                        </button>
+                    </div>
+                    `;
+                }
+
+                card.innerHTML = badges + desc;
                 card.appendChild(mathDiv);
+                if(vizButton) card.insertAdjacentHTML('beforeend', vizButton);
+                
                 container.appendChild(card);
             });
 
-            // Attach Event Listeners to the newly rendered Katex HTML
             attachClickHandlers();
         }
 
+        // --- Interaction Handlers ---
+
         function attachClickHandlers() {
-            // Find all elements with the class 'variable-link' created by Gemini's Latex output
             const links = document.querySelectorAll('.variable-link');
-            
             links.forEach(link => {
                 link.addEventListener('click', (e) => {
                     e.stopPropagation();
-                    // Extract ID from class list (format: ref-ID)
                     const classes = Array.from(link.classList);
                     const refClass = classes.find(c => c.startsWith('ref-'));
-                    
                     if (refClass) {
-                        const targetId = refClass.replace('ref-', '');
-                        showOriginPopup(targetId);
+                        showOriginPopup(refClass.replace('ref-', ''));
                     }
                 });
             });
@@ -318,26 +463,128 @@
             const content = document.getElementById('popup-content');
             const desc = document.getElementById('popup-desc');
 
-            // Render origin formula
             katex.render(data.latex, content, {
                 throwOnError: false,
                 displayMode: true,
                 trust: true 
             });
 
-            desc.textContent = `Origin: ${data.description}`;
-
+            // Parse backticks in description for LTR blocks AND render them
+            desc.innerHTML = formatPersianText(`Origin: ${data.description}`);
+            
             overlay.style.display = 'block';
             popup.style.display = 'block';
         }
 
-        function closePopup() {
-            document.getElementById('origin-popup').style.display = 'none';
-            document.getElementById('overlay').style.display = 'none';
+        // --- CUSTOM TOOLTIP HANDLER ---
+        const externalTooltipHandler = (context) => {
+            const {chart, tooltip} = context;
+            const tooltipEl = document.getElementById('chartjs-tooltip');
+
+            if (tooltip.opacity === 0) {
+                tooltipEl.style.opacity = 0;
+                return;
+            }
+
+            // Set Text
+            if (tooltip.body) {
+                const titleLines = tooltip.title || [];
+                const bodyLines = tooltip.body.map(b => b.lines);
+
+                let innerHtml = '';
+                
+                titleLines.forEach(title => {
+                    innerHtml += `<div class="font-bold mb-1">${title}</div>`;
+                });
+
+                bodyLines.forEach((body, i) => {
+                    // This is where we apply the Chip Formatting to tooltips!
+                    innerHtml += `<div class="text-sm persian-content">${formatPersianText(body[0])}</div>`;
+                });
+
+                tooltipEl.innerHTML = innerHtml;
+            }
+
+            const {offsetLeft: positionX, offsetTop: positionY} = chart.canvas;
+
+            tooltipEl.style.opacity = 1;
+            tooltipEl.style.left = positionX + tooltip.caretX + 'px';
+            tooltipEl.style.top = positionY + tooltip.caretY + 'px';
+        };
+
+        function openChart(id) {
+            const data = FORMULA_DATA_MAP[id];
+            if (!data || !data.chart_data) return;
+
+            const popup = document.getElementById('chart-popup');
+            const overlay = document.getElementById('overlay');
+            const ctx = document.getElementById('vizCanvas').getContext('2d');
+            const subtitle = document.getElementById('chart-subtitle');
+            const legendContainer = document.getElementById('chart-legend-container');
+
+            // 1. Render Subtitle using Format function (Chips!)
+            const cleanLatex = data.latex.replace(/\\htmlClass{.*?}{|}/g, ''); 
+            subtitle.innerHTML = formatPersianText(`تجسم بصری رابطه: \`${cleanLatex}\``);
+
+            // 2. Custom Legend (To support chips)
+            const labelText = data.chart_data.dataset_label || 'Value';
+            legendContainer.innerHTML = `
+                <div class="flex items-center gap-2 px-3 py-1 bg-white border border-gray-200 rounded-full shadow-sm">
+                    <span class="w-3 h-3 rounded-full bg-indigo-500"></span>
+                    <span class="text-sm persian-content font-medium text-slate-700">${formatPersianText(labelText)}</span>
+                </div>
+            `;
+
+            if (currentChartInstance) {
+                currentChartInstance.destroy();
+            }
+
+            const chartConfig = {
+                type: data.chart_data.type || 'line',
+                data: {
+                    labels: data.chart_data.labels,
+                    datasets: [{
+                        label: labelText, // Kept for internal logic, but hidden in canvas
+                        data: data.chart_data.data,
+                        borderColor: '#4f46e5',
+                        backgroundColor: 'rgba(79, 70, 229, 0.1)',
+                        borderWidth: 2,
+                        pointBackgroundColor: '#ffffff',
+                        pointBorderColor: '#4f46e5',
+                        pointRadius: 4,
+                        pointHoverRadius: 6,
+                        tension: 0.3,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }, // Disable Canvas Legend
+                        tooltip: {
+                            enabled: false, // Disable Canvas Tooltip
+                            external: externalTooltipHandler // Enable HTML Tooltip
+                        }
+                    },
+                    scales: {
+                        y: { beginAtZero: false, grid: { color: '#f1f5f9' } },
+                        x: { grid: { display: false } }
+                    }
+                }
+            };
+
+            currentChartInstance = new Chart(ctx, chartConfig);
+
+            overlay.style.display = 'block';
+            popup.style.display = 'flex';
         }
 
-        // Initialize empty map
-        FORMULA_DATA_MAP = {};
+        function closeAllPopups() {
+            document.getElementById('origin-popup').style.display = 'none';
+            document.getElementById('chart-popup').style.display = 'none';
+            document.getElementById('overlay').style.display = 'none';
+        }
     </script>
 </body>
 </html>
